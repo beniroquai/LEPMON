@@ -1,0 +1,14 @@
+RPi.GPIO
+adafruit-circuitpython-bh1750
+adafruit-circuitpython-pct2075
+smbus2
+bme280
+pytz
+timezonefinder-python
+ephem
+opencv-python-headless
+vimba-sdk
+Pillow
+luma.oled
+ina226
+numpy
