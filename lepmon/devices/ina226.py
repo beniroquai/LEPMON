@@ -1,5 +1,8 @@
 import logging
-from ina226 import INA226
+try:
+    from ina226 import INA226
+except ImportError:
+    from lepmon.devices.MockINA226 import MockINA226 as INA226
 
 class INA226Sensor:
     def __init__(self, busnum=1, max_expected_amps=10):
@@ -17,6 +20,7 @@ class INA226Sensor:
             self.sensor.configure()
             self.sensor.set_low_battery(5)
         except Exception as e:
+            print(e)
             # handle or log error
 
     def read_power_values(self):

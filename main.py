@@ -2,17 +2,27 @@ import os
 import sys
 import time
 import json
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    import VPi.GPIO as GPIO
 from datetime import datetime
 import pytz
+import board
+try:
+    import busio
+except ImportError:
+    import VPi.busio as busio
+    import VPi.board as board
+    
 
 # Device classes
 from lepmon.devices.bh1750 import BH1750Sensor
 from lepmon.devices.pct2075 import PCT2075Sensor
 from lepmon.devices.ina226 import INA226Sensor
 from lepmon.devices.bme280_sensor import BME280Sensor
-from lepmon.devices.camera import AlviumCamera, ArducamCamera
 from lepmon.devices.led import LEDDimmer
+#from lepmon.devices.camera import AlviumCamera, ArducamCamera
 
 # UI classes
 from lepmon.ui.oled_display import OLEDDisplay
@@ -41,15 +51,15 @@ def main():
     error_pin = 17
     GPIO.setup(error_pin, GPIO.OUT)
 
-    log_file = "/path/to/logfile.log"
-    init_logger(log_file)
+    log_file = "logfile.log"
+    log_path = os.path.join(os.path.dirname(__file__), log_file)
+    init_logger(log_path)
     write_log("Starting LepMon application...")
 
     ############################
     # 2) Initialize devices
     ############################
     # i2c bus
-    import board, busio
     i2c_bus = busio.I2C(board.SCL, board.SDA)
 
     # Sensors
@@ -63,7 +73,7 @@ def main():
 
     # Camera
     # E.g. user chooses Alvium vs Arducam from config
-    camera = AlviumCamera("/home/Ento/Lepmon_Einstellungen/Kamera_Einstellungen.xml")
+    # camera = AlviumCamera("/home/Ento/Lepmon_Einstellungen/Kamera_Einstellungen.xml")
     # camera = ArducamCamera()
 
     # LED

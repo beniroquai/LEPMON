@@ -1,4 +1,8 @@
-import adafruit_pct2075
+
+try:
+    import adafruit_pct2075
+except ImportError:
+    import lepmon.devices.MockPCT2075 as adafruit_pct2075
 
 class PCT2075Sensor:
     def __init__(self, i2c_bus):

@@ -1,5 +1,9 @@
-import bme280
-import smbus2
+try:
+    import bme280
+    import smbus2
+except ImportError:
+    import lepmon.devices.MockBME280 as bme280
+    import lepmon.devices.MockSMBus as smbus2
 
 class BME280Sensor:
     def __init__(self, i2c_port=1, address=0x76):

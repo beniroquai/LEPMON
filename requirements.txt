@@ -1,4 +1,5 @@
 RPi.GPIO
+VPi
 adafruit-circuitpython-bh1750
 adafruit-circuitpython-pct2075
 smbus2
@@ -12,3 +13,6 @@ Pillow
 luma.oled
 ina226
 numpy
+timezonefinder
+board
+luma.core

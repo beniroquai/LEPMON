@@ -1,4 +1,9 @@
-import RPi.GPIO as GPIO
+
+try: 
+    import RPi.GPIO as GPIO
+except ImportError:
+    import VPi.GPIO as GPIO
+    # from lepmon.devices.MockGPIO import MockGPIO as GPIO
 import time
 import json
 

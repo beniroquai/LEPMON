@@ -1,4 +1,8 @@
-import RPi.GPIO as GPIO
+try:
+    import GPIO
+except ImportError:
+    import VPi.GPIO as GPIO
+
 import time
 
 class LEDDimmer:
