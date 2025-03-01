@@ -1,0 +1,14 @@
+13:24:27; Logfile erstellt: home/uc2/Downloads/Lepmon#SN999999_Th_J_2025-03-01_T_1324/Lepmon#SN999999_Th_J_2025-03-01_T_1324.log
+13:23:31; 20 Sekunden sind vergangen, ohne dass der Taster gedrückt wurde.
+13:24:49; 2025-03-01
+13:24:49; Geografische Breite: 11.0
+13:24:49; Geografische Länge:  51.0
+13:24:49; Zeitzone: Europe/Berlin
+13:24:49; berechneter Beginn Abenddämmerung: 2025-03-02  17:57:06
+13:24:49; berechnetes Ende Morgendämmerung:  2025-03-02  06:59:52
+13:24:49; Puffer für Dämmerung: 0:30:00
+13:24:49; Gesamter Speicherplatz: 113.79 GB
+13:24:49; Belegter Speicherplatz: 19.89 GB (17.48%)
+13:24:49; Freier Speicherplatz:   88.11 GB (77.43%)
+13:24:49; Fehler in der Verbindung zum Lichtsensor. Verbindung RPi - Multiplexor - Sensor überprüfen. Wert des Umgebungslichtes auf Schwellenwert gesetzt: No I2C device at address: 0x23
+13:24:49; Warte bis Nachtbeginn: 28:02:17
