@@ -1,0 +1,38 @@
+SN999999
+Lora Sender initialisiert
+2025-01-11 00:30:13,486 - INFO - INA226 calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-01-11 00:30:13,486 - INFO - INA226 max possible current: 16.38A
+2025-01-11 00:30:13,487 - INFO - INA226 max expected current: 10.000A
+2025-01-11 00:30:13,487 - INFO - INA226 expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-01-11 00:30:13,487 - INFO - INA226 current LSB: 3.052e-04 A/bit
+2025-01-11 00:30:13,487 - INFO - INA226 power LSB: 7.690e-03 W/bit
+2025-01-11 00:30:13,487 - INFO - INA226 max current before overflow: 9.9997A
+2025-01-11 00:30:13,487 - INFO - INA226 max shunt voltage before overflow: 49.9985mV
+2025-01-11 00:30:13,487 - INFO - INA226 calibration: 0x0a1c (2588)
+2025-01-11 00:30:22,556 - INFO - INA226 calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-01-11 00:30:22,556 - INFO - INA226 max possible current: 16.38A
+2025-01-11 00:30:22,556 - INFO - INA226 max expected current: 10.000A
+2025-01-11 00:30:22,556 - INFO - INA226 expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-01-11 00:30:22,556 - INFO - INA226 current LSB: 3.052e-04 A/bit
+2025-01-11 00:30:22,556 - INFO - INA226 power LSB: 7.690e-03 W/bit
+2025-01-11 00:30:22,556 - INFO - INA226 max current before overflow: 9.9997A
+2025-01-11 00:30:22,556 - INFO - INA226 max shunt voltage before overflow: 49.9985mV
+2025-01-11 00:30:22,556 - INFO - INA226 calibration: 0x0a1c (2588)
+2025-01-11 00:30:32,032 - INFO - INA226 calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-01-11 00:30:32,033 - INFO - INA226 max possible current: 16.38A
+2025-01-11 00:30:32,033 - INFO - INA226 max expected current: 10.000A
+2025-01-11 00:30:32,033 - INFO - INA226 expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-01-11 00:30:32,033 - INFO - INA226 current LSB: 3.052e-04 A/bit
+2025-01-11 00:30:32,033 - INFO - INA226 power LSB: 7.690e-03 W/bit
+2025-01-11 00:30:32,033 - INFO - INA226 max current before overflow: 9.9997A
+2025-01-11 00:30:32,033 - INFO - INA226 max shunt voltage before overflow: 49.9985mV
+2025-01-11 00:30:32,034 - INFO - INA226 calibration: 0x0a1c (2588)
+2025-01-11 00:31:13,089 - INFO - INA226 calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-01-11 00:31:13,089 - INFO - INA226 max possible current: 16.38A
+2025-01-11 00:31:13,089 - INFO - INA226 max expected current: 10.000A
+2025-01-11 00:31:13,090 - INFO - INA226 expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-01-11 00:31:13,090 - INFO - INA226 current LSB: 3.052e-04 A/bit
+2025-01-11 00:31:13,090 - INFO - INA226 power LSB: 7.690e-03 W/bit
+2025-01-11 00:31:13,090 - INFO - INA226 max current before overflow: 9.9997A
+2025-01-11 00:31:13,090 - INFO - INA226 max shunt voltage before overflow: 49.9985mV
+2025-01-11 00:31:13,090 - INFO - INA226 calibration: 0x0a1c (2588)

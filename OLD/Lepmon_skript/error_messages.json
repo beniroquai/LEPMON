@@ -1,0 +1,22 @@
+{
+	"1":["Fehler 1","Außensensor","nicht gefunden"],
+	"2":["Fehler 2","Umgebungslichtsensor","nicht gefunden"],
+	"3":["Fehler 3","Harware Uhr","pruefe Batterie"],
+	"4":["Fehler 4","USB Stick","Anschluss pruefen"],
+	"5":["Fehler 5","Kamera - prüfe","Kabelverbindung"],
+	"6":["Fehler 6","Loging Fehler","Pruefe USB Stick"],
+	"7":["Fehler 7","Daemmerungszeiten","Tagaktivitaet"],
+	"8":["Fehler 8","Lichtsensor fehler","Schwellenwert"],
+	"9":["Fehler 9","",""],
+	"10":["Fehler 10","",""],
+	"11":["Fehler 11","",""],
+	"12":["Fehler 12","",""],
+	"13":["Fehler 13","",""],
+	"14":["Fehler 14","",""],
+	"15":["Fehler 15","",""],
+	"16":["Fehler 16","",""],
+	"17":["Fehler 17","",""],
+	"18":["Fehler 18","",""],
+	"19":["Fehler 19","",""]
+
+}

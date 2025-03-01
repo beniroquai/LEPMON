@@ -1,0 +1,1114 @@
+import sys
+sys.path.append('/home/Ento/Lepmon_venv/lib/python3.11/site-packages')
+import adafruit_bh1750
+import adafruit_bmp280
+import adafruit_ds3231
+import board
+import busio
+import bme280
+import csv
+import cv2
+from datetime import datetime, timedelta
+import I2C_LCD_driver
+import ephem
+from gpiozero import LED
+import json
+import os
+#import picamera
+from picamera2 import Picamera2
+import pytz
+import RPi.GPIO as GPIO
+import shutil
+import smbus2
+import time
+from vimba import *
+from time import mktime
+
+#################################################################################################################
+######################################## I2C Variablen - NICHT ÄNDERN!!! ########################################
+#################################################################################################################
+loading_char = [
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b00000
+] 
+lcd = I2C_LCD_driver.lcd()
+lcd.lcd_display_string("Laden...", 1)
+lcd.lcd_load_custom_chars([loading_char])
+lcd.lcd_display_string(chr(0) * 15, line=2)
+time.sleep(2)
+lcd = I2C_LCD_driver.lcd()
+lcd.lcd_display_string("   Willkommen   ", 1)
+lcd.lcd_display_string("   bei LEPMON   ", 2)
+
+GPIO.cleanup()
+
+class Sensor:
+    def __init__(self, lux):
+        self.lux = lux
+
+Fehler_code = None
+bmp = None
+rtc = None
+
+Fehler_pin = 17
+def Fehlerindikator(Fehler_code):
+    for f in range(3):
+      for _ in range(Fehler_code):
+        GPIO.output(Fehler_pin, GPIO.HIGH)
+        time.sleep(0.5)
+        GPIO.output(Fehler_pin, GPIO.LOW)
+        time.sleep(0.5)
+      time.sleep(5)
+      
+      
+def set_pin_state(pin, state):
+    GPIO.output(pin, state)         
+
+GPIO.setup(Fehler_pin, GPIO.OUT)
+
+#################################################################################################################
+os.system('sudo raspi-config nonint do_i2c 0') # I2C aktivieren
+i2c = busio.I2C(board.SCL, board.SDA)
+
+
+try:
+  bmp280 = adafruit_bmp280.Adafruit_BMP280_I2C(i2c, address=0x77)
+  Sensorstatus_Temp = 1
+except Exception as e:
+    print(f"Fehler in der Verbindung zum Temperatursensor. Verbindung RPi - Sensor überprüfen: {e}")
+    Fehlerindikator(1)
+    Sensorstatus_Temp = 0
+    pass
+  
+  
+try: 
+  bh = adafruit_bh1750.BH1750(i2c)
+  Sensorstatus_Licht = 1
+except Exception as e:
+  print(f"Fehler in der Verbindung zum Lichtsensor. Verbindung RPi - Sensor überprüfen: {e}")
+  Fehlerindikator(2) 
+  Sensorstatus_Licht = 0
+  pass
+    
+  
+port = 1
+address = 0x76
+bus = smbus2.SMBus(port)
+
+try:
+  calibration_params = bme280.load_calibration_params(bus, address)
+  Außensensor = bme280.sample(bus, address, calibration_params)
+except Exception as e:
+  print(f"Fehler in der Verbindung zum Außensensor. Verbindung RPi - Sensor überprüfen: {e}")
+  Fehlerindikator(9)
+  Sensorstatus_hum = 0
+  
+###
+
+
+#lösche alles, was nicht mit #Lepmon beginnt und alles im Papierkorb
+# for root, dirs, files in os.walk(zielverzeichnis, topdown=True):         # Überprüfen, ob der Name nicht mit "Lepmon#" beginnt und lösche es nicht
+#     for name in files + dirs:
+#         if not name.startswith("Lepmon#"):
+#             try:
+#                 os.remove(os.path.join(root, name)) if os.path.isfile(os.path.join(root, name)) else shutil.rmtree(os.path.join(root, name))
+#                 print(f"{name} gelöscht")
+#             except Exception as e:
+#                 print(f"Fehler beim Löschen von {name}: {e}")
+# try:# Papierkorb leeren
+#     trash_path = os.popen("xdg-user-dir TRASH").read().strip()
+# except Exception as e:
+#     print(f"Fehler beim Abrufen des Papierkorbpfads: {e}")
+#     trash_path = None
+# 
+# if trash_path:
+#     try:
+#         # Alle Dateien und Ordner im Papierkorb löschen
+#         for item in os.listdir(trash_path):
+#             item_path = os.path.join(trash_path, item)
+#             if os.path.isfile(item_path):
+#                 os.remove(item_path)
+#                 print(f"{item} gelöscht")
+#             elif os.path.isdir(item_path):
+#                 shutil.rmtree(item_path)
+#                 print(f"{item} gelöscht")
+#         print("Papierkorb geleert")
+#     except Exception as e:
+#         print(f"Fehler beim Leeren des Papierkorbs: {e}")
+# else:
+#     print("Der Papierkorb konnte nicht gefunden werden.")
+
+
+
+
+#################################################################################################################
+######################################### Funktionen fürs Hauptprogramm #########################################
+#################################################################################################################
+control_pin = LED(27)
+control_pin.on()
+
+def Zeit_aktualisieren():
+        global jetzt_local, jetzt_UTC, lokale_Zeit
+        jetzt_UTC = datetime.utcnow()
+        jetzt_local = datetime.now()
+        lokale_Zeit = jetzt_local.strftime("%H:%M:%S")
+
+        
+def get_twilight_times(latitude, longitude, date, timezone):
+    global Abenddämmerung, Abenddämmerung_formatted, Abenddämmerung_short, Morgendämmerung, Morgendämmerung_formatted, Morgendämmerung_short, nacht_beginn_zeit, nacht_ende_zeit
+    observer = ephem.Observer()
+    observer.lat = str(latitude)
+    observer.lon = str(longitude)
+    date_utc = date.astimezone(ephem.UTC) # Convert the local date to UTC
+
+    sunset = ephem.localtime(observer.next_setting(ephem.Sun(), start=date_utc)) # Calculate times based on UTC time
+    Abenddämmerung = ephem.localtime(observer.next_setting(ephem.Sun(), use_center=True, start=date_utc))# Calculate times based on UTC time
+    nacht_beginn_zeit = Abenddämmerung - Dämmerungspuffer
+    Abenddämmerung_formatted = Abenddämmerung.strftime("%Y-%m-%d  %H:%M:%S")
+    Abenddämmerung_short = Abenddämmerung.strftime("%H:%M:%S")
+
+    
+    next_day = date + timedelta(days=1)# For the following day
+    next_day_utc = next_day.astimezone(ephem.UTC)
+    sunrise = ephem.localtime(observer.previous_rising(ephem.Sun(), start=next_day_utc))
+    Morgendämmerung = ephem.localtime(observer.previous_rising(ephem.Sun(), use_center=True, start=next_day_utc))
+    nacht_ende_zeit = Morgendämmerung + Dämmerungspuffer
+    Morgendämmerung_formatted = Morgendämmerung.strftime("%Y-%m-%d  %H:%M:%S")
+    Morgendämmerung_short =  Morgendämmerung.strftime("%H:%M:%S")
+ 
+ 
+def get_disk_space(path): ####Speicher Abfrage####
+    try:
+        stat = os.statvfs(path) # Erhalte Informationen über den Dateisystemstatus
+        total_space = stat.f_frsize * stat.f_blocks # Gesamtgröße des Dateisystems in Bytes
+        used_space = stat.f_frsize * (stat.f_blocks - stat.f_bfree) # Verwendeter Speicherplatz in Bytes
+        free_space = stat.f_frsize * stat.f_bavail # Freier Speicherplatz in Bytes
+        
+        # Konvertiere Bytes in GB
+        total_space_gb = total_space / (1024 ** 3)
+        used_space_gb = used_space / (1024 ** 3)
+        free_space_gb = free_space / (1024 ** 3)
+        
+        used_percent = (used_space / total_space) * 100 # Berechne Prozentanteil des belegten und freien Speicherplatzes
+        free_percent = (free_space / total_space) * 100
+        
+        return total_space_gb, used_space_gb, free_space_gb, used_percent, free_percent
+    except Exception as e:
+        print(f"Fehler beim Abrufen des Speicherplatzes: {e}")
+        return None, None, None, None, None
+      
+      
+def erstelle_logfile():
+    jetzt_local = datetime.now()
+    try: 
+      ordnerpfad = erstelle_ordner_und_dateiname()
+    except Exception as e:
+        print(f"{lokale_Zeit}; Fehler in der Verbindung zum Speichermedium: {e}")
+        Fehlerindikator(4)
+        pass
+    datum_nacht_beginn = jetzt_local.strftime("%Y%m%d")
+    ordnername = os.path.basename(ordnerpfad)  # Extrahiere den Ordnername aus dem vollständigen Pfad
+    log_dateiname = f"{ordnername}.log"
+    log_dateipfad = os.path.join(ordnerpfad, log_dateiname)
+
+    try:
+        # Öffne das Logfile im Schreibmodus und leite den Terminaloutput darauf um
+        sys.stdout = open(log_dateipfad, 'w')
+        sys.stderr = sys.stdout
+        print(f"{lokale_Zeit}; Logfile erstellt: {log_dateipfad}")
+    except Exception as e:
+        Fehlerindikator(6)
+        print(f"{lokale_Zeit}; Fehler beim Erstellen des Logfiles: {e}")     
+        pass
+
+
+# Funktion zum Erstellen des Ordners und Bildernamen
+def erstelle_ordner_und_dateiname():
+    global aktueller_nachtordner
+    
+    aktuelles_datum = jetzt_local.strftime("%Y%m%d")
+    uhrzeit_erstes_bild = jetzt_local.strftime("%H%M")
+    ordnername = f"{projekt_name}{sensor_id}-{bundesland}-{stadt_code}-{aktuelles_datum}T{uhrzeit_erstes_bild}"
+
+    if aktueller_nachtordner is None or not os.path.exists(aktueller_nachtordner):
+        aktueller_nachtordner = os.path.join(zielverzeichnis, ordnername)
+        os.makedirs(aktueller_nachtordner, exist_ok=True)
+
+    return aktueller_nachtordner
+
+def dim_up(Blitz_Änderung_zeit):
+   pwm.start(0)
+   for duty_cycle in range(0, 99,1):
+        pwm.ChangeDutyCycle(duty_cycle)
+        time.sleep(Blitz_Änderung_zeit / 100)
+        
+      
+def dim_down(Blitz_Änderung_zeit):  
+  pwm.start(100)
+  for duty_cycle in range(99, 0, -1):
+        pwm.ChangeDutyCycle(duty_cycle)
+        time.sleep(Blitz_Änderung_zeit / 100) 
+  
+# Aufnehmen eines Bildes
+def nehme_bild_auf():
+    global dateipfad
+    ordnerpfad = erstelle_ordner_und_dateiname()
+    datum_nacht_beginn = jetzt_local.strftime("%Y%m%d")  # Aktualisiere das Datum hier
+    dateiname = f"{projekt_name}{sensor_id}-{bundesland}-{stadt_code}-{datum_nacht_beginn}T{jetzt_local.strftime('%H%M')}.tiff"
+    dateipfad = os.path.join(ordnerpfad, dateiname)
+
+    if Kamera == "Allied Vision Alvium":
+      # Vimba zum aufnehmen
+      with Vimba.get_instance() as vimba:
+         cams = vimba.get_all_cameras()
+         with cams[0] as cam:
+              try:
+                 cam.set_pixel_format(PixelFormat.Bgr8)
+                 cam.load_settings(Kamera_Einstellungen, PersistType.All)
+                 frame = cam.get_frame(timeout_ms=864000000).as_opencv_image()
+                 cv2.imwrite(dateipfad, frame)
+                 print(f"{lokale_Zeit}; Bild gespeichert: {dateiname}")
+              except Exception as e:
+                  print(f"{lokale_Zeit}; Fehler beim Bilderspeichern: {e}")
+                  pass
+                  
+    elif Kamera == "Arducam Hawkeye":
+      Aufnahme = 'libcamera-still -t 5000 -n -o'  + str(ordnerpfad) + '/' + str(dateiname)
+      print(Aufnahme)
+      try:
+            os.system(Aufnahme)
+            print(f"{lokale_Zeit}; Bild gespeichert: {dateiname}")
+      except Exception as e:
+            print(f"{lokale_Zeit}; Fehler beim Bilderspeichern: {e}")
+            pass
+          
+    
+# Erstellen oder Aktualisieren der CSV-Datei
+def erstelle_und_aktualisiere_csv():
+    global aktueller_nachtordner
+    
+    ordnerpfad = erstelle_ordner_und_dateiname()
+    datum_nacht_beginn = jetzt_local.strftime("%Y%m%d")
+    ordnername = os.path.basename(ordnerpfad)  # Extrahiere den Ordnername aus dem vollständigen Pfad
+    csv_dateiname = f"{ordnername}.csv"
+    csv_dateipfad = os.path.join(ordnerpfad, csv_dateiname)
+
+    # Überprüfe, ob die CSV-Datei bereits existiert
+    if not os.path.exists(csv_dateipfad):
+        # Erstelle die CSV-Datei und schreibe die Spaltennamen
+        with open(csv_dateipfad, mode='w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile, delimiter='\t')  # Setze den Tabulator als Trennzeichen
+            csv_writer.writerow(["#UTC Time:", jetzt_UTC.strftime("%Y-%m-%d  %H:%M:%S")])
+            csv_writer.writerow(["#Longitude:",longitude]) 
+            csv_writer.writerow(["#Latitude:", latitude])
+            csv_writer.writerow([])
+            csv_writer.writerow(["#errechneter Beginn Abenddämmerung:",Abenddämmerung_formatted])
+            csv_writer.writerow(["#errechnetes Ende Morgendämmerung:", Morgendämmerung_formatted])
+            csv_writer.writerow([])
+            csv_writer.writerow(["#Machine ID:", sensor_id])
+            csv_writer.writerow(["#Verwendete Kamera:",Kamera])
+            csv_writer.writerow(["#Dämmerungs Schwellenwert:",Dämmerungsschwellenwert])
+            csv_writer.writerow(["#Aufnahme Intervall:",Intervall])
+            if Kontinuität:
+              csv_writer.writerow([])
+              csv_writer.writerow(["#Aufnahme Modus:","mit Unterbrechung"])
+              csv_writer.writerow(["#UV Anlockphase (UV an):",UV_anlocken])
+              csv_writer.writerow(["#UV cool down (UV aus):",UV_freilassen])
+            csv_writer.writerow([])
+            csv_writer.writerow(["********************"])
+            csv_writer.writerow([])
+            csv_writer.writerow(["#Starting new Programme"])
+            csv_writer.writerow(["#Local Time:", jetzt_local.strftime("%Y-%m-%d  %H:%M:%S")])
+            #csv_writer.writerow(["#Local Time:", lokale_Zeit])
+            csv_writer.writerow([])            
+            csv_writer.writerow(["Code", "Temperature [C]", "Pressure [hPa]","Humidity [%]", "Ambient Light", "Status Umwelt Sensor", "Status Licht Sensor"])
+
+    # Schreibe einen neuen Eintrag in die CSV-Datei
+    kodierung = f"{sensor_id}-{bundesland}-{stadt_code}-{jetzt_local.strftime('%Y%m%d')}T{jetzt_local.strftime('%H%M')}"
+
+    with open(csv_dateipfad, mode='a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile, delimiter='\t')  # Setze den Tabulator als Trennzeichen
+        if Sensorstatus_hum == 1 and Sensorstatus_Licht == 1:
+          csv_writer.writerow([kodierung, Außensensor.temperature, Außensensor.pressure,Außensensor.humidity, bh.lux, Sensorstatus_hum, Sensorstatus_Licht])
+        if Sensorstatus_hum == 1 and Sensorstatus_Licht == 0:
+          csv_writer.writerow([kodierung, Außensensor.temperature, Außensensor.pressure,Außensensor.humidity, "Fehler: Sensor nicht verfügbar", Sensorstatus_hum, Sensorstatus_Licht])
+        if Sensorstatus_hum == 0 and Sensorstatus_Licht == 0:
+          csv_writer.writerow([kodierung, "Fehler: Sensor nicht verfügbar","Fehler: Sensor nicht verfügbar","Fehler: Sensor nicht verfügbar", bh.lux, Sensorstatus_hum, Sensorstatus_Licht])  
+        if Sensorstatus_hum == 0 and Sensorstatus_Licht == 0:
+          csv_writer.writerow([kodierung, "Fehler: Sensor nicht verfügbar", "Fehler: Sensor nicht verfügbar", "Fehler: Sensor nicht verfügbar","Fehler: Sensor nicht verfügbar", Sensorstatus_hum, Sensorstatus_Licht])
+        
+        
+def LepiLED_start():
+    global LepiLed_pwm, LepiLed_pwm_active
+    print(f"{lokale_Zeit}; LepiLED eingeschaltet")
+
+    LepiLed_pwm.start(0)
+    for duty_cycle in range(0, 99, 1):
+        LepiLed_pwm.ChangeDutyCycle(duty_cycle)
+        time.sleep(Blitz_Änderung_zeit / 100)
+        LepiLed_pwm.ChangeDutyCycle(100)
+    LepiLed_pwm_active = True
+def LepiLED_ende():
+    global LepiLed_pwm, LepiLed_pwm_active
+    print(f"{lokale_Zeit}; LepiLED ausgeschaltet")
+
+    LepiLed_pwm.start(100)
+    for duty_cycle in range(99, 0, -1):
+        LepiLed_pwm.ChangeDutyCycle(duty_cycle)
+        time.sleep(Blitz_Änderung_zeit / 100)
+        LepiLed_pwm.ChangeDutyCycle(0)
+    LepiLed_pwm_active = False
+    
+    
+def Luxwert_lesen():
+  global LUX
+  try:
+   LUX = adafruit_bh1750.BH1750(i2c)
+   LUX = LUX.lux
+  except Exception as e:
+    print(f"{lokale_Zeit}; Fehler in der Verbindung zum Lichtsensor. Verbindung RPi - Multiplexor - Sensor überprüfen. Wert des Umgebungslichtes auf Schwellenwert gesetzt: {e}")
+    Fehlerindikator(8)
+    LUX = Dämmerungsschwellenwert
+    pass  
+  
+  
+def json_einlesen(dateipfad):
+    with open(dateipfad, 'r') as datei:
+        daten = json.load(datei)
+    return daten
+  
+def load_coordinates_from_json(file_path):
+    try:
+        with open(file_path, "r") as json_file:
+            coordinates_data = json.load(json_file)
+        # Extract latitude and longitude from the loaded JSON data
+        latitude = coordinates_data.get("latitude")
+        longitude = coordinates_data.get("longitude")
+        # Return the extracted coordinates
+        return latitude, longitude
+    except Exception as e:
+        print(f"Error loading coordinates from JSON: {e}")
+        return None, None
+  
+def breitengrad_in_liste(breitengrad,längengrad):
+  global breitengrad_list, längengrad_list 
+  
+  if breitengrad / 10 < 1:
+    latitude_str = str(breitengrad).replace('.', '')
+    latitude_str = str(0)+latitude_str
+  
+  elif breitengrad / 10 >= 1:
+    latitude_str = str(breitengrad).replace('.', '')
+    
+  fehlende_nullen = 9 - len(latitude_str)
+  if fehlende_nullen > 0:
+      latitude_str = latitude_str + '0' * fehlende_nullen
+  
+  breitengrad_list = [int(x) for x in latitude_str]
+
+  if 0.1 > längengrad / 100 >= 0.01:
+    longitude_str = str(längengrad).replace('.', '')
+    longitude_str = str(0)+str(0)+longitude_str  
+    
+  elif 1 > längengrad / 100 >= 0.1:
+    longitude_str = str(längengrad).replace('.', '')
+    longitude_str = str(0)+longitude_str
+    
+  elif längengrad / 100 >= 1:
+    longitude_str = str(längengrad).replace('.', '')
+
+  fehlende_nullen = 10 - len(longitude_str)
+  if fehlende_nullen > 0:
+      longitude_str = longitude_str + '0' * fehlende_nullen
+
+    
+  längengrad_list = [int(x) for x in longitude_str]   
+  
+
+def check_usb_connection(zielverzeichnis):
+    if os.path.exists(zielverzeichnis):
+        lcd.lcd_clear()
+        lcd.lcd_display_string("USB Stick", 1)
+        lcd.lcd_display_string("richtig verbunden", 2)
+        time.sleep(4)
+    else:
+        lcd.lcd_clear()
+        lcd.lcd_display_string("USB Stick", 1)
+        lcd.lcd_display_string("nicht gefunden", 2)
+        time.sleep(4)
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Bitte Falle", 1)
+        lcd.lcd_display_string("neu starten", 2)
+        Fehlerindikator(4)
+        time.sleep(4)
+        sys.exit(4)
+
+  
+#################################################################################################################
+################################################# kombinierte Funktionen #################################################
+#################################################################################################################
+def Zeit_nächste_Aufnahme():
+  naechste_minute = jetzt_local.replace(second=0, microsecond=0) + timedelta(minutes=Intervall)
+  zeit_bis_naechste_minute = (naechste_minute - jetzt_local).total_seconds()
+  time.sleep(zeit_bis_naechste_minute)
+  print(f"{lokale_Zeit}, Warten bis zur nächsten Aufnahme:{zeit_bis_naechste_minute}")
+
+
+def Daten_erfassen():
+  global bh, Sensorstatus_hum, Sensorstatus_Temp, Sensorstatus_Licht
+  Kamera_Strom.on()
+  time.sleep(5)
+  Zeit_aktualisieren()
+  try:
+    bh = adafruit_bh1750.BH1750(i2c)
+    Sensorstatus_Licht = 1
+  except Exception as e:
+    print(f"{lokale_Zeit}; Fehler in der Verbindung zum Lichtsensor. Verbindung RPi - Sensor überprüfen: {e}")
+    Fehlerindikator(2)
+    bh = Sensor(Dämmerungsschwellenwert)
+    Sensorstatus_Licht = 0
+    pass  
+  print(f"{lokale_Zeit}; Zustand Umgebungslicht Sensor:, {Sensorstatus_Licht},{bh.lux}")  
+  Zeit_aktualisieren()
+  dim_up(Blitz_Änderung_zeit)
+  try:
+    nehme_bild_auf()
+    dim_down(Blitz_Änderung_zeit)
+  except Exception as e:
+    dim_down(Blitz_Änderung_zeit)
+    Fehlerindikator(5)
+    print(f"{lokale_Zeit}; Fehler bei der Verbindung zur Kamera: {e}")   
+    pass
+  Kamera_Strom.off()
+  try:
+    bmp280 = adafruit_bmp280.Adafruit_BMP280_I2C(i2c, address=0x77)
+    Sensorstatus_Temp = 1
+    print(f"{lokale_Zeit}; Innentemperatur: {round(bmp280.temperature, 2)}")
+  except Exception as e:
+    print(f"{lokale_Zeit}; Fehler in der Verbindung zum Innensensor. Verbindung RPi -  Sensor überprüfen: {e}")
+    Fehlerindikator(1)
+    bmp280 = "Fehler 1: Sensor nicht gefunden"
+    Sensorstatus_Temp = 0
+    pass
+  try: 
+    calibration_params = bme280.load_calibration_params(bus, address)
+    Außensensor = bme280.sample(bus, address, calibration_params)
+    Sensorstatus_hum = 1
+  except Exception as e:  
+    print(f"{lokale_Zeit}; Fehler in der Verbindung zum Außensensor. Verbindung RPi -  Sensor überprüfen: {e}")
+    Fehlerindikator(9)
+    Außensensor = "Fehler 9: Sensor nicht gefunden"
+    Sensorstatus_hum = 0
+
+def Ende():  
+    LepiLED_ende()
+    Zeit_aktualisieren()                
+    aktueller_nachtordner = None # Nachtordner zurücksetzen
+    print(f"{lokale_Zeit}; Ordner zurückgesetzt")
+    control_pin.off()
+    try:
+      print("{lokale_Zeit}; Logfile geschlossen.")
+      sys.stdout = sys.__stdout__
+      sys.stderr = sys.__stderr__
+      
+    except Exception as e:
+      print(f"{lokale_Zeit}; Fehler beim Schließen des Logfiles: {e}")  
+      pass
+                
+    os.system('sudo reboot')
+
+
+def eingabe_gps_koordinaten():
+    global Breite, Länge
+    
+    breitengrad_in_liste(breitengrad,längengrad)
+    
+    aktuelle_position = 0
+    Wahlmodus = 1
+
+    while True:
+      if Wahlmodus < 3:
+        if Wahlmodus == 1 :
+            lcd.lcd_display_string("Latitude setzen:", 1)
+            lcd.lcd_display_string(f"{breitengrad_list[0]}{breitengrad_list[1]}.{breitengrad_list[2]}{breitengrad_list[3]}{breitengrad_list[4]}{breitengrad_list[5]}{breitengrad_list[6]}{breitengrad_list[7]}{breitengrad_list[8]}", 2)
+        elif Wahlmodus == 2 :
+            lcd.lcd_display_string("Longitude setzen:", 1)
+            lcd.lcd_display_string(f"{längengrad_list[0]}{längengrad_list[1]}{längengrad_list[2]}.{längengrad_list[3]}{längengrad_list[4]}{längengrad_list[5]}{längengrad_list[6]}{längengrad_list[7]}{längengrad_list[8]}{längengrad_list[9]}", 2)
+
+        # Auf Tastendruck warten und entsprechende Aktion durchführen
+        if GPIO.input(PIN_HOCH) == GPIO.LOW:
+            if Wahlmodus == 1 :
+                breitengrad_list[aktuelle_position] = (breitengrad_list[aktuelle_position] + 1) % 10
+            elif Wahlmodus == 2 :
+                längengrad_list[aktuelle_position] = (längengrad_list[aktuelle_position] + 1) % 10
+        
+        elif GPIO.input(PIN_RUNTER) == GPIO.LOW:
+            if Wahlmodus == 1 :
+                breitengrad_list[aktuelle_position] = (breitengrad_list[aktuelle_position] - 1) % 10
+            elif Wahlmodus == 2 :
+                längengrad_list[aktuelle_position] = (längengrad_list[aktuelle_position] - 1) % 10
+        
+        elif GPIO.input(Rechts) == GPIO.LOW:
+          if Wahlmodus == 1 :
+            aktuelle_position = (aktuelle_position + 1) % 9
+          elif   Wahlmodus == 2 :
+           aktuelle_position = (aktuelle_position + 1) % 10
+        
+        elif GPIO.input(PIN_EINGABE) == GPIO.LOW:
+            Wahlmodus +=1
+        
+      elif Wahlmodus == 3:
+          break
+
+      time.sleep(0.005)  # Kurze Pause für die Stabilität
+      
+      Breite = float(f"{breitengrad_list[0]}{breitengrad_list[1]}.{breitengrad_list[2]}{breitengrad_list[3]}{breitengrad_list[4]}{breitengrad_list[5]}{breitengrad_list[6]}{breitengrad_list[7]}{breitengrad_list[8]}")
+      Länge = float(f"{längengrad_list[0]}{längengrad_list[1]}{längengrad_list[2]}.{längengrad_list[3]}{längengrad_list[4]}{längengrad_list[5]}{längengrad_list[6]}{längengrad_list[7]}{längengrad_list[8]}{längengrad_list[9]}")
+
+          
+def Uhrzeit_stellen():
+    current_datetime = datetime.now()
+    date_time_str = current_datetime.strftime("%Y%m%d%H%M%S")
+    date_time_list = [int(digit) for digit in date_time_str]
+    
+    aktuelle_position = 0
+    Wahlmodus = 1
+    try:
+     while True:
+        if Wahlmodus < 3:
+            if Wahlmodus == 1:
+                lcd.lcd_display_string("Tag einstellen:", 1)
+                lcd.lcd_display_string(f"{date_time_list[0]}{date_time_list[1]}{date_time_list[2]}{date_time_list[3]}-{date_time_list[4]}{date_time_list[5]}-{date_time_list[6]}{date_time_list[7]}", 2)
+            elif Wahlmodus == 2:
+                lcd.lcd_display_string("Zeit einstellen:", 1)
+                lcd.lcd_display_string(f"{date_time_list[8]}{date_time_list[9]}:{date_time_list[10]}{date_time_list[11]}:{date_time_list[12]}{date_time_list[13]}", 2)
+        
+            if GPIO.input(PIN_HOCH) == GPIO.LOW:
+                date_time_list[aktuelle_position] = (date_time_list[aktuelle_position] + 1) % 10
+            
+            elif GPIO.input(PIN_RUNTER) == GPIO.LOW:
+                date_time_list[aktuelle_position] = (date_time_list[aktuelle_position] - 1) % 10
+            
+            elif GPIO.input(Rechts) == GPIO.LOW:
+              if Wahlmodus == 1:
+                aktuelle_position = (aktuelle_position + 1) % 8 
+              elif Wahlmodus == 2:
+                if aktuelle_position != 13:  # Anstatt 14, da die Positionen 8 bis 13 die Zeit HH:MM:SS repräsentieren
+                    aktuelle_position = (aktuelle_position + 1) % 14
+                else:
+                    aktuelle_position = 8  # Zurück zur Position 8 für Stunden (HH) wenn Sekunden (SS) bearbeitet wurden
+        
+            elif GPIO.input(PIN_EINGABE) == GPIO.LOW:
+                Wahlmodus += 1
+                aktuelle_position = 8
+                lcd.lcd_clear()
+        
+        elif Wahlmodus == 3:
+            break
+
+        time.sleep(0.1)  # Kurze Pause für die Stabilität
+
+     # Construct the command for setting system time
+     system_time_str = f"{date_time_list[0]}{date_time_list[1]}{date_time_list[2]}{date_time_list[3]}-{date_time_list[4]}{date_time_list[5]}-{date_time_list[6]}{date_time_list[7]} {date_time_list[8]}{date_time_list[9]}:{date_time_list[10]}{date_time_list[11]}:{date_time_list[12]}{date_time_list[13]}"
+     command = f"sudo timedatectl set-time '{system_time_str}'"
+    
+     # Execute the command
+     os.system("sudo timedatectl set-ntp false")
+     os.system(command)
+     lcd.lcd_clear()
+     lcd.lcd_display_string("Uhrzeit:", 1)
+     lcd.lcd_display_string("aktualisiert:", 2)
+     lcd.lcd_clear()    
+     start_time = time.time()
+     while time.time() - start_time < 5:
+        current_time = datetime.now().strftime("%H:%M:%S")
+        lcd.lcd_display_string("Uhrzeit:", 1)
+        lcd.lcd_display_string(current_time, 2)
+        time.sleep(1) 
+        
+    except:
+        lcd.lcd_display_string("Fehler 3:", 1)
+        lcd.lcd_display_string("Hardware Uhr", 2)
+        Fehlerindikator(3)
+
+class SensorData:
+    def __init__(self, innentemperatur, kabinendruck, umgebungslicht, außentemperatur, luftdruck, luftfeuchte):
+        self.innentemperatur = innentemperatur
+        self.kabinendruck = kabinendruck
+        self.umgebungslicht = umgebungslicht
+        self.außentemperatur = außentemperatur
+        self.luftdruck = luftdruck
+        self.luftfeuchte = luftfeuchte
+
+
+    @classmethod
+    def read_sensor_data(cls):
+        i2c = busio.I2C(board.SCL, board.SDA)
+        bmp280 = adafruit_bmp280.Adafruit_BMP280_I2C(i2c, address=0x77)
+        bh = adafruit_bh1750.BH1750(i2c)
+        try:
+          innentemperatur = round(bmp280.temperature, 2)
+          kabinendruck = round(bmp280.pressure, 2)
+        except:
+          lcd.lcd_display_string("Fehler 1:", 1)
+          lcd.lcd_display_string("Innenensensor", 2)
+          Fehlerindikator(1)
+          
+        try:
+          umgebungslicht = adafruit_bh1750.BH1750(i2c)
+          umgebungslicht = round(umgebungslicht.lux, 2)
+        except:
+          lcd.lcd_display_string("Fehler 2:", 1)
+          lcd.lcd_display_string("Lichtsensor", 2)
+          Fehlerindikator(2)
+
+        try:
+          calibration_params = bme280.load_calibration_params(bus, address)
+          Außensensor = bme280.sample(bus, address, calibration_params)
+          
+          außentemperatur = round(Außensensor.temperature, 2)  # Placeholder for actual outside temperature reading
+          luftdruck = round(Außensensor.pressure, 2)  # Placeholder for actual air pressure reading
+          luftfeuchte = round(Außensensor.humidity, 2)  # Placeholder for actual humidity reading
+  
+        except: 
+          lcd.lcd_display_string("Fehler 9:", 1)
+          lcd.lcd_display_string("Außensensor", 2)
+          Fehlerindikator(9)
+          
+        return cls(innentemperatur, kabinendruck, umgebungslicht, außentemperatur, luftdruck, luftfeuchte)
+  
+    
+#################################################################################################################
+################################################# Hauptprogramm #################################################
+#################################################################################################################
+### Verzeichnisse
+koordinaten_file_path = "/home/Ento/Lepmon_Einstellungen/Koordinaten.json"
+erw_einstellungen_pfad = "/home/Ento/Lepmon_Einstellungen/Fallenmodus.json"
+Kamera_Einstellungen = "/home/Ento/Lepmon_Einstellungen/Kamera_Einstellungen.xml"
+zielverzeichnis = "/media/Ento/Maxell"
+
+
+### Variablen
+Blitz_PMW = 350 # Modulation für LED im Optofet
+dimmer_pin = 6 # große Lampe
+#dimmer_pin = 16 # kleine Lampe
+GUI_pin = LED(22)
+Kamera_Strom = LED(5)
+LepiLed_pin = 26 
+aktueller_nachtordner = None
+LepiLed_pwm = None
+LepiLed_pwm_active = False
+LUX = None
+nacht_beginn_zeit = None
+nacht_ende_zeit = None
+pwm = None
+vorhandene_Koordinaten = None
+
+# Koordinaten
+try:
+  latitude, longitude = load_coordinates_from_json(koordinaten_file_path)
+  vorhandene_Koordinaten = 1
+except:  
+  latitude = 00.0000000
+  longitude = 000.0000000
+  vorhandene_Koordinaten = 0
+
+breitengrad = latitude
+längengrad = longitude
+  
+
+### Knöpfe
+Rechts = 8
+PIN_EINGABE = 7
+PIN_HOCH = 23
+PIN_RUNTER = 24
+
+### GPIO
+GPIO.setmode(GPIO.BCM) # Initialisierung der GPIO und PWM außerhalb der Schleife
+GPIO.setup(dimmer_pin, GPIO.OUT)
+GPIO.setup(LepiLed_pin, GPIO.OUT)
+GPIO.setup(Rechts, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_EINGABE, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_HOCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_RUNTER, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+pwm = GPIO.PWM(dimmer_pin, Blitz_PMW)
+LepiLed_pwm = GPIO.PWM(LepiLed_pin, Blitz_PMW)
+
+#################################################################################################################
+################################################## Einstellungen ################################################
+#################################################################################################################
+
+### erweiterte Einstellungen
+#Lepmoncode
+codeverzeichnis = ""
+with open('/home/Ento/Lepmon_Einstellungen/LepmonCode.json') as f:
+    data = json.load(f)
+
+projekt_name = data["projekt_name"]
+sensor_id = data["sensor_id"]
+bundesland = data["bundesland"]
+stadt_code = data["stadtcode"]
+
+# Fallenmodus
+Fallen_Setup = json_einlesen(erw_einstellungen_pfad)  
+Blitz_Änderung_zeit = float(Fallen_Setup["Erweiterte_Einstellungen"]["Blitzaenderungszeit"])
+Dämmerungspuffer = int(Fallen_Setup["Erweiterte_Einstellungen"]["Daemmerungspuffer"])
+Dämmerungspuffer = timedelta(minutes=Dämmerungspuffer)
+Dämmerungsschwellenwert = int(Fallen_Setup["Erweiterte_Einstellungen"]["Daemmerung"])# Luxwert, unter dem von Dämmerung ausgegangen wird
+Intervall = int(Fallen_Setup["Erweiterte_Einstellungen"]["Intervall_zwischen_Photos"]) # Intervall zwischen 2 Aufnahmen in Minuten
+Kamera = str(Fallen_Setup["Erweiterte_Einstellungen"]["Kameratyp"])
+Zeitzone = Fallen_Setup["Erweiterte_Einstellungen"]["Zeitzone"]
+Zeitzone = pytz.timezone(Zeitzone)
+utc_timezone = pytz.utc
+
+Kontinuität = Fallen_Setup["Fang_mit_Pause"]
+if Kontinuität:
+    UV_anlocken = int(Fallen_Setup["Anlockphase"])
+    UV_freilassen = int(Fallen_Setup["Pause"])
+    uv_an_zähler = 0
+    uv_an_dauer = Intervall/Intervall*UV_anlocken
+    uv_aus_zähler = 0
+    uv_aus_dauer = Intervall/Intervall*UV_freilassen 
+    
+    
+### Einstellungen via LCD
+time.sleep(3)
+lcd.lcd_clear()  
+lcd.lcd_display_string("Bitte Parameter", 1)
+lcd.lcd_display_string("eingeben", 2)
+time.sleep(1)
+
+    # 20 Sekunden lang auf Tastendruck warten
+for _ in range(200):
+    GUI_pin.on()  
+    if GPIO.input(PIN_EINGABE) is not GPIO.HIGH:
+        GUI_pin.off()
+        lcd.lcd_clear()  
+        lcd.lcd_display_string("Eingabe Menue", 1)
+        time.sleep(1)
+        
+        eingabe_gps_koordinaten()
+        lcd.lcd_clear()
+        
+        Koordinaten_pfad = "/home/Ento/Lepmon_Einstellungen/Koordinaten.json"
+        koordinaten = {
+        "latitude": Breite,
+        "longitude": Länge
+        }
+        with open(Koordinaten_pfad, "w") as json_datei:
+          json.dump(koordinaten, json_datei, indent=4)
+      
+        lcd.lcd_display_string("GPS gespeichert", 1)
+        lcd.lcd_display_string("", 2)
+        time.sleep(2)
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Datum und Zeit", 1)
+        lcd.lcd_display_string("einstellen", 2)
+        time.sleep(2)
+        Uhrzeit_stellen()
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Testlauf", 1)
+        lcd.lcd_display_string("starten", 2)
+        time.sleep(2)  
+        sensor_data = SensorData.read_sensor_data()
+        
+        # Test auf USB Stick
+        check_usb_connection(zielverzeichnis)
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Innentemperatur", 1)
+        lcd.lcd_display_string("{} C".format(sensor_data.innentemperatur), 2)
+        time.sleep(3)     
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Kabinendruck", 1)
+        lcd.lcd_display_string("{} hPa".format(sensor_data.kabinendruck), 2)
+        time.sleep(3)
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Helligkeit", 1)
+        lcd.lcd_display_string("{} Lux".format(sensor_data.umgebungslicht), 2)
+        time.sleep(3)
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Luftdruck", 1)
+        lcd.lcd_display_string("{} hPa".format(sensor_data.luftdruck), 2)
+        time.sleep(3)     
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Luftfeuchte", 1)
+        lcd.lcd_display_string("{} %".format(sensor_data.luftfeuchte), 2)
+        time.sleep(3)
+        
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Kamera Test", 1)
+        Kamera_Strom.on()
+        time.sleep(4)
+        lcd.lcd_display_string("Beleuchtung !", 2) 
+        time.sleep(1)        
+        
+        LepiLed_pwm.start(0)
+        for duty_cycle in range(0, 99, 1):
+          LepiLed_pwm.ChangeDutyCycle(duty_cycle)
+          time.sleep(Blitz_Änderung_zeit / 100)
+          LepiLed_pwm.ChangeDutyCycle(100)
+        dim_up(Blitz_Änderung_zeit)  
+        
+        try:
+###########################
+          dateiname = f"{projekt_name}{sensor_id}-{bundesland}-{stadt_code}__test.jpg" 
+          print(dateiname)
+          lokaler_pfad = "/media/Ento/Maxell"
+          lokaler_dateipfad = os.path.join(lokaler_pfad, dateiname)
+          if Kamera == "Allied Vision Alvium":
+      # Vimba zum aufnehmen
+            with Vimba.get_instance() as vimba:
+              cams = vimba.get_all_cameras()
+              with cams[0] as cam:
+                  try:
+                    cam.set_pixel_format(PixelFormat.Bgr8)
+                    cam.load_settings(Kamera_Einstellungen, PersistType.All)
+                    frame = cam.get_frame(timeout_ms=864000000).as_opencv_image()
+                    cv2.imwrite(lokaler_dateipfad, frame)
+                    print(f"Bild gespeichert: {dateiname}")
+                  except VimbaCError as ve:
+                    print("VimbaCError:", ve)
+                    pass
+                  
+          elif Kamera == "Arducam Hawkeye":
+            Aufnahme = 'libcamera-still -t 5000 -n -o'  + str(lokaler_dateipfad)
+            print(Aufnahme)
+            try:
+              os.system(Aufnahme)
+              print(f"Bild gespeichert: {dateiname}")
+            except Exception as e:
+              print("Error:", e)
+              pass
+###########################          
+          
+          LepiLed_pwm.start(100)
+          for duty_cycle in range(99, 0, -1):
+            LepiLed_pwm.ChangeDutyCycle(duty_cycle)
+            time.sleep(Blitz_Änderung_zeit / 100)
+            LepiLed_pwm.ChangeDutyCycle(0)
+          dim_down(Blitz_Änderung_zeit)
+          lcd.lcd_clear()
+          lcd.lcd_display_string("Kamera Test", 1)
+          lcd.lcd_display_string("erfolgeich", 2)
+          
+          time.sleep(3)
+        except Exception as ex:
+          dim_down(Blitz_Änderung_zeit)
+          lcd.lcd_clear()          
+          lcd.lcd_display_string("Kamera Fehler", 1) 
+          lcd.lcd_display_string("Fehler 5", 2)  
+          time.sleep(3)
+          Fehlerindikator(5)
+          print("Error:", ex)
+        Kamera_Strom.off()
+        lcd.lcd_clear() 
+        try:
+          löschbefehl = str(lokaler_dateipfad)
+          time.sleep(2)
+          os.remove(löschbefehl)
+          print("gelöscht")
+          lcd.lcd_clear()            
+          lcd.lcd_display_string("Speicherzugriff", 1) 
+          lcd.lcd_display_string("erfolgreich", 2)
+          time.sleep(3)
+        except:
+          lcd.lcd_clear()            
+          lcd.lcd_display_string("Fehler 4: Speicher", 1)
+          lcd.lcd_display_string("nicht verfügbar", 2)
+          Fehlerindikator(4)
+          
+        Fallen_Setup = json_einlesen(erw_einstellungen_pfad)
+        Zeitzone = Fallen_Setup["Erweiterte_Einstellungen"]["Zeitzone"]
+        Zeitzone = pytz.timezone(Zeitzone)
+        Start_Datum = datetime.now()
+        
+        get_twilight_times(latitude, longitude, Start_Datum, Zeitzone)
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Abenddaemmerung:", 1)
+        lcd.lcd_display_string(Abenddämmerung_short, 2)
+        time.sleep(4)
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Morgendaemmerung:", 1)
+        lcd.lcd_display_string(Morgendämmerung_short, 2)
+        time.sleep(4)
+        
+        try:
+         total_space_gb, used_space_gb, free_space_gb, used_percent, free_percent = get_disk_space(zielverzeichnis)
+         lcd.lcd_clear()
+         lcd.lcd_display_string("Speicher belegt:", 1)
+         lcd.lcd_display_string("{:.2f}GB {:.2f}%".format(used_space_gb, used_percent), 2)
+         time.sleep(5)
+        
+         lcd.lcd_clear()
+         lcd.lcd_display_string("Speicher frei:", 1)
+         lcd.lcd_display_string("{:.2f}GB {:.2f}%".format(free_space_gb, free_percent),2)
+         time.sleep(5)
+        
+        except:
+         lcd.lcd_clear()
+         lcd.lcd_display_string("Fehler 4: Speicher", 1)
+         lcd.lcd_display_string("nicht verfügbar", 2)
+         Fehlerindikator(4)
+        
+        lcd.lcd_clear()
+        lcd.lcd_display_string("Testlauf ok", 1)
+        lcd.lcd_display_string("beginne Programm",2)
+        time.sleep(5)         
+          
+        break
+    time.sleep(0.1)    
+else:
+        print("20 Sekunden sind vergangen, ohne dass der Taster gedrückt wurde.")
+        GUI_pin.off()  
+
+######Setups#####
+latitude, longitude = load_coordinates_from_json(koordinaten_file_path)
+
+
+#################################################################################################################
+################################################# Hauptprogramm #################################################
+#################################################################################################################
+
+Zeit_aktualisieren()
+Start_Datum = datetime.now()
+
+#erstelle_logfile()
+
+print(f"{lokale_Zeit};", Start_Datum.strftime("%Y-%m-%d"))
+if vorhandene_Koordinaten == 1:
+  print(f"{lokale_Zeit};", "Koordinaten unverändert")
+elif vorhandene_Koordinaten == 0:
+  print(f"{lokale_Zeit};", "Koordinaten wurden geändert!")
+print(f"{lokale_Zeit};",longitude)
+print(f"{lokale_Zeit};",latitude)
+get_twilight_times(latitude, longitude, Start_Datum, Zeitzone)
+
+print(f"{lokale_Zeit}; berechneter Beginn Abenddämmerung: {Abenddämmerung_formatted}")
+print(f"{lokale_Zeit}; berechnetes Ende Morgendämmerung:  {Morgendämmerung_formatted}")
+print(f"{lokale_Zeit}; Puffer für Dämmerung: {Dämmerungspuffer}")
+
+total_space_gb, used_space_gb, free_space_gb, used_percent, free_percent = get_disk_space(zielverzeichnis)
+
+if total_space_gb is not None:
+    print(f"{lokale_Zeit}; Gesamter Speicherplatz: {total_space_gb:.2f} GB")
+    print(f"{lokale_Zeit}; Belegter Speicherplatz: {used_space_gb:.2f} GB ({used_percent:.2f}%)")
+    print(f"{lokale_Zeit}; Freier Speicherplatz: {free_space_gb:.2f} GB ({free_percent:.2f}%)")
+else:
+    print(f"{lokale_Zeit}; Zielverzeichnis konnte nicht ausglesen werden: verfügbarer Speicher unbekannt.")
+    
+Luxwert_lesen()
+
+control_pin.off()
+if nacht_ende_zeit.time()<= jetzt_local.time() <nacht_beginn_zeit.time():
+  jetzt_local = jetzt_local.replace(tzinfo=None)
+  Schlaf_bis_beginn = (nacht_beginn_zeit - jetzt_local).total_seconds()
+  Schlaf_Stunden = int(Schlaf_bis_beginn// 3600)
+  Schlaf_rest = Schlaf_bis_beginn % 3600
+  Schlaf_Minuten = int(Schlaf_rest // 60)
+  Schlaf_Sekunden = int(Schlaf_rest % 60)
+  Schlaf_Zeit = "{:02d}:{:02d}:{:02d}".format(Schlaf_Stunden, Schlaf_Minuten, Schlaf_Sekunden)
+  print(f"{lokale_Zeit}; Warte bis Nachtbeginn: {Schlaf_Zeit}")
+
+  countdown = datetime.strptime(Schlaf_Zeit, "%H:%M:%S")
+  lcd.lcd_clear()  
+  lcd.lcd_display_string("Start in:", 1)  
+  for _ in range(120):
+    countdown_str = countdown.strftime("%H:%M:%S")  # Konvertiere datetime-Objekt in formatierten String
+    lcd.lcd_display_string(countdown_str, 2)
+    countdown -= timedelta(seconds=1)
+    time.sleep(1)
+
+  lcd.lcd_clear()
+  lcd.backlight(0)
+  Schlaf_bis_beginn = Schlaf_bis_beginn-120
+  time.sleep(Schlaf_bis_beginn)
+  Zeit_aktualisieren()
+
+lcd.lcd_clear()  
+lcd.backlight(0)
+
+Fang_started = False
+if (LUX <= Dämmerungsschwellenwert and not nacht_ende_zeit.strftime("%H:%M:%S") <= jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")):
+      LepiLED_start()
+      Fang_started = True
+
+naechste_volle_minute = jetzt_local.replace(second=0, microsecond=0) + timedelta(minutes=1) # Warte bis zur nächsten vollen Minute
+try: # Überprüfe, ob die nächste Minute ungerade ist, und füge eine zusätzliche Minute hinzu, wenn erforderlich
+  if naechste_volle_minute.minute % Intervall != 0:
+      naechste_volle_minute += timedelta(minutes=1)  
+except: 
+  pass
+
+
+#################################################################################################################
+#################################################### Schleife ###################################################
+#################################################################################################################
+try:   
+    while True:
+        Zeit_aktualisieren()
+        Luxwert_lesen()
+        jetzt_local = jetzt_local.replace(tzinfo=None)
+        if (LUX <= Dämmerungsschwellenwert and not nacht_ende_zeit.strftime("%H:%M:%S") <= jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")) or\
+           (LUX >  Dämmerungsschwellenwert and not nacht_ende_zeit.strftime("%H:%M:%S") <= jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")) and Fang_started:
+          if not Fang_started:
+            LepiLED_start()
+            Fang_started = True
+            
+          bh = None
+          if not Kontinuität: # kontinuierlicher Fang (Standard)
+            Daten_erfassen()
+            erstelle_und_aktualisiere_csv()
+            Zeit_nächste_Aufnahme()
+            
+          elif Kontinuität: # Fangmodus für Tropen: mit Zeit in der die UV Lampe aus ist
+              if not LepiLed_pwm_active: 
+                if uv_aus_zähler <= uv_aus_dauer:
+                  uv_aus_zähler +=1
+                  Daten_erfassen()
+                  erstelle_und_aktualisiere_csv()
+                  Zeit_nächste_Aufnahme()
+                  
+                if uv_aus_zähler == uv_aus_dauer:
+                  LepiLED_start()
+                  erstelle_und_aktualisiere_csv()
+                  uv_aus_zähler = 0
+            
+              if LepiLed_pwm_active: 
+                if uv_an_zähler <= uv_an_dauer:
+                  uv_an_zähler += 1
+                  Daten_erfassen()
+                  erstelle_und_aktualisiere_csv()
+                  Zeit_nächste_Aufnahme()
+                  
+                if uv_an_zähler == uv_an_dauer:
+                  LepiLED_ende()
+                  erstelle_und_aktualisiere_csv()
+                  uv_an_zähler = 0
+        elif (LUX >= Dämmerungsschwellenwert and Morgendämmerung.strftime("%H:%M:%S") < jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")):
+          Ende()
+        else:
+          Zeit_nächste_Aufnahme()
+                  
+except KeyboardInterrupt: # Programm beenden, wenn Strg+C gedrückt wird
+    print(f"{lokale_Zeit}; Programm beendet.")
+    pass
+
+finally:
+    # Aufräumarbeiten vor dem Beenden
+    if pwm is not None:
+        pwm.stop()
+    GPIO.cleanup()

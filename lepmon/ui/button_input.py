@@ -22,3 +22,9 @@ class ButtonInput:
             if timeout and (time.time() - start) > timeout:
                 return False
             time.sleep(0.01)
+            
+    def is_released(self):
+        return GPIO.input(self.pin) == GPIO.HIGH
+
+    def is_pressed(self):
+        return GPIO.input(self.pin) == GPIO.LOW

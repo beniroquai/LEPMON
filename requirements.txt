@@ -16,3 +16,4 @@ numpy
 timezonefinder
 board
 luma.core
+gpiozero
