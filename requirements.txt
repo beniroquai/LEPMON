@@ -20,8 +20,7 @@ adafruit-circuitpython-ds3231
 imutils
 picamera2
 pyserial
-
-
-imutils
 adafruit-blinka
+imutils
+https://github.com/openUC2/imswitchclient/archive/refs/heads/main.zip
 https://github.com/BLavery/lib_oled96/archive/refs/heads/master.zip
