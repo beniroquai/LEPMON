@@ -10,7 +10,7 @@ print("Hauptskript")
 #################################################################################################################
 
 import sys
-sys.path.append('/home/Ento/Lepmon_venv/lib/python3.11/site-packages')
+#sys.path.append('/home/Ento/Lepmon_venv/lib/python3.11/site-packages')
 import adafruit_bh1750
 import adafruit_ds3231
 import board

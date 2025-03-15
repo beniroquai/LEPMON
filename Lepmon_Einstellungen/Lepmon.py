@@ -467,25 +467,10 @@ def nehme_bild_auf():
             print(f"Bild erfolgreich gespeichert: {file_name}")
         except requests.exceptions.RequestException as e:
             print(f"Fehler beim Aufrufen des Endpoints: {e}")
-      def post_sensordata(humidity, inner_temp, outer_temp):
-        import requests
-        url = "https://localhost:8001/RecordingController/postSensorData"
-        data = {
-            'humidity': humidity,
-            'inner_temp': inner_temp,
-            'outer_temp': outer_temp
-        }
-        try:
-            response = requests.post(url, json=data, verify=False)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-            print("Sensordaten erfolgreich übermittelt")
-        except requests.exceptions.RequestException as e:
-            print(f"Fehler beim Übermitteln der Sensordaten: {e}")
-            
+
       log_schreiben(f"{lokale_Zeit}; Bild gespeichert: {dateiname}")
       image_message = f"Lepmon#{sensor_id} Bild gespeichert: {dateiname}"
       snap_image_to_path(dateiname)
-      post_sensordata(außentemperatur, innentemperatur, luftfeuchtigkeit)
             
 
       
@@ -847,6 +832,24 @@ def Daten_erfassen():
         f"",
         ])
     uart.write(sensorik_message.encode('utf-8') + b'\n') 
+    if Kamera == "ImSwitch":
+          def post_sensordata(humidity, inner_temp, outer_temp):
+            import requests
+            url = "https://localhost:8001/RecordingController/postSensorData"
+            data = {
+                'humidity': humidity,
+                'inner_temp': inner_temp,
+                'outer_temp': outer_temp
+            }
+            try:
+                response = requests.post(url, json=data, verify=False)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                print("Sensordaten erfolgreich übermittelt")
+            except requests.exceptions.RequestException as e:
+                print(f"Fehler beim Übermitteln der Sensordaten: {e}")
+                
+    post_sensordata(Temperatur, pct, Luftfeuchte)
+            
   except Exception as e:
     print(f"Lora Message nicht gesendet: {e}")
 

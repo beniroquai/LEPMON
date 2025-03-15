@@ -112,6 +112,22 @@ lepmon
 └── requirements.txt
 ```
 
+## INstallation 
+
+```bash
+sudo apt install -y python3-picamera2
+sudo apt-get install i2c-tools -y
+sudo raspi-config nonint do_i2c 0
+i2cdetect -y 1
+
+
+cd ~/Downloads
+git clone https://github.com/beniroquai/SEPMON
+conda create -n lepmon  python=3.9 -y
+conda activate lepmon
+pip install -r requirements.txt
+```
+
 ## Notes
 
 - Make sure to provide appropriate permissions to access GPIO and I2C devices. Use `sudo` if necessary.
