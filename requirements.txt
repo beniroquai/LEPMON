@@ -10,6 +10,7 @@ opencv-python-headless
 https://github.com/alliedvision/VimbaPython/archive/refs/heads/master.zip
 Pillow
 luma.oled
+
 https://github.com/e71828/pi_ina226/archive/refs/heads/main.zip
 numpy
 timezonefinder==6.5.7
@@ -23,4 +24,4 @@ pyserial
 adafruit-blinka
 imutils
 https://github.com/openUC2/imswitchclient/archive/refs/heads/main.zip
-https://github.com/BLavery/lib_oled96/archive/refs/heads/master.zip
+#https://github.com/BLavery/lib_oled96/archive/refs/heads/master.zip
