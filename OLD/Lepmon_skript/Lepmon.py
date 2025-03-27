@@ -50,8 +50,10 @@ from time import mktime
 ## Camera
 ######################
 import imswitchclient.ImSwitchClient as imc
-client = imc.ImSwitchClient(host="imswitch.openuc2.com", isHttps=True, port=443)
+client = imc.ImSwitchClient(host="localhost", isHttps=True, port=8001)
 
+# run sudo raspi-config nonint do_i2c 1
+import sys
 
 #################################################################################################################
 ######################################## I2C Variablen - NICHT ÄNDERN!!! ########################################
