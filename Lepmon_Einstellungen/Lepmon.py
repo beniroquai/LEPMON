@@ -47,16 +47,16 @@ from vimba import *
 from time import mktime
 
 
-IMSWITCH_URL = "imswitch.openuc2.com"
+IMSWITCH_URL = "localhost"
 IMSWITCH_PORT = 8001
-https://100.71.92.70:8001/LepmonController/setSensorData?innerTemp=1&outerTemp=2&humidity=3
+
 
 
 #######################
 ## Camera
 ######################
 import imswitchclient.ImSwitchClient as imc
-client = imc.ImSwitchClient(host="imswitch.openuc2.com", isHttps=True, port=443)
+client = imc.ImSwitchClient(host="localhost", isHttps=True, port=443)
 
 
 #################################################################################################################
