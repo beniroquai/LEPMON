@@ -1,3 +1,4 @@
+untitled:Untitled-3 {"typeId":""}
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
@@ -33,7 +34,7 @@ from lib_oled96 import ssd1306
 import logging
 import os
 #import picamera
-from picamera2 import Picamera2
+#from picamera2 import Picamera2
 from PIL import ImageFont, ImageDraw, Image
 import pytz
 import RPi.GPIO as GPIO
@@ -45,6 +46,19 @@ from timezonefinder import TimezoneFinder
 from vimba import *
 from time import mktime
 
+
+IMSWITCH_URL = "imswitch.openuc2.com"
+IMSWITCH_PORT = 8001
+https://100.71.92.70:8001/LepmonController/setSensorData?innerTemp=1&outerTemp=2&humidity=3
+
+
+#######################
+## Camera
+######################
+import imswitchclient.ImSwitchClient as imc
+client = imc.ImSwitchClient(host="imswitch.openuc2.com", isHttps=True, port=443)
+
+
 #################################################################################################################
 ######################################## I2C Variablen - NICHT ÄNDERN!!! ########################################
 #################################################################################################################
@@ -53,11 +67,16 @@ GPIO.cleanup()
 Display = i2c(port=1, address=0x3C)
 oled = sh1106(Display)
 
+# current folder path
+current_folder = os.path.dirname(os.path.abspath(__file__))
+# path to the font file
+font_path = os.path.join(current_folder, 'FreeSans.ttf')
+oled_font = ImageFont.truetype(font_path, 14)
+oled_font_large = ImageFont.truetype(font_path, 17)
 
-oled_font = ImageFont.truetype('FreeSans.ttf', 14)
-oled_font_large = ImageFont.truetype('FreeSans.ttf', 17)
-
-with open('/home/Ento/Lepmon_Einstellungen/LepmonCode.json') as f:
+# get folder of Settings 
+settings_folder = os.path.join(current_folder, 'Lepmon_Einstellungen')
+with open(os.path.join(settings_folder,'LepmonCode.json')) as f:
     data = json.load(f)
 sensor_id = data["sensor_id"]
 
@@ -84,7 +103,7 @@ for _ in range(3):
 blau = LED(6)
 blau.off()
 
-logo = Image.open('/home/Ento/Lepmon_skript/logo_small.png')
+logo = Image.open(os.path.join(current_folder, 'logo_small.png'))
 
 with canvas(oled) as draw:
     draw.rectangle(oled.bounding_box, outline = "white", fill = "black")
@@ -114,7 +133,7 @@ def Fehlerindikator(Fehler_code):
         GPIO.output(Fehler_pin, GPIO.LOW)
         time.sleep(0.5)
       data = {"Fehler_code": Fehler_code}  
-      with open("/home/Ento/Lepmon_skript/FehlerNummer.json", "w") as json_file:
+      with open(os.path.join(current_folder, 'FehlerNummer.json'), "w") as json_file:
           json.dump(data, json_file)
       time.sleep(3)
       
@@ -244,6 +263,11 @@ def get_usb_path():
             if os.path.ismount(zielverzeichnis):
                 USB_PATH = zielverzeichnis
                 return zielverzeichnis
+    else:
+        print("USB-Stick nicht gefunden.")
+        # use the default path as Downloads
+        zielverzeichnis = os.path.join("home", username, "Downloads")
+        return zielverzeichnis
     return None
   
 
@@ -361,8 +385,8 @@ def log_schreiben(text):
             print("Logfile konnte nicht erstellt werden.")
             return
     except Exception as e:
-        print("Logfile Feherl: {e}")
-        sys.exit(0)
+        print("Logfile Feherl:" +str(e))
+        #sys.exit(0)
 
     try:
         with open(log_dateipfad, 'a') as f:
@@ -386,7 +410,7 @@ def erstelle_ordner_und_dateiname():
         if aktueller_nachtordner is None or not os.path.exists(aktueller_nachtordner):
             aktueller_nachtordner = os.path.join(zielverzeichnis, ordnername)
             os.makedirs(aktueller_nachtordner, exist_ok=True)
-    except:
+    except Exception as e:
         Fehlerindikator(4)
 
     return aktueller_nachtordner
@@ -455,25 +479,13 @@ def nehme_bild_auf():
       except Exception as e:
             log_schreiben(f"{lokale_Zeit}; Fehler beim Bilderspeichern: {e}")
             pass
-    elif Kamera == "ImSwitch":
-      def snap_image_to_path(file_name, metadata):
-        import requests
-        url = "https://localhost:8001/RecordingController/snapImageToPath"
-        params = {'fileName': file_name}
-        
-        try:
-            response = requests.get(url, params=params, verify=False)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-            print(f"Bild erfolgreich gespeichert: {file_name}")
-        except requests.exceptions.RequestException as e:
-            print(f"Fehler beim Aufrufen des Endpoints: {e}")
-
+    elif Kamera == "HIK":
+      '''
+      this will request to take an image from imswitch and save it on disk 
+      '''
+      image = client.recordingManager.snapNumpyToFastAPI()
+      cv2.imwrite(dateipfad, image)
       log_schreiben(f"{lokale_Zeit}; Bild gespeichert: {dateiname}")
-      image_message = f"Lepmon#{sensor_id} Bild gespeichert: {dateiname}"
-      snap_image_to_path(dateiname)
-            
-
-      
     return Leistung_An      
 
 csv_dateipfad = ""
@@ -808,6 +820,39 @@ def Daten_erfassen():
   time.sleep(1)  
   Kamera_Strom.off()
   
+  # send update sensor data to rest (e.g. imswitch probably as json)
+  def sendSensorDataToImSwitch():
+    import requests
+    # URL und Port anpassen
+    url = f"https://{IMSWITCH_URL}:{IMSWITCH_PORT}/LepmonController/setSensorData"
+    data = {
+        "innerTemp": pct,
+        "outerTemp": Temperatur,
+        "humidity": Luftfeuchte,
+        "sensor_id": sensor_id,
+        "Status_Licht": Status_Licht,
+        "Umgebungshelligkeit": bh,
+        "Status_Strom": Status_Strom,
+        "Leistung_LED": Leistung_LED,
+        "bus_voltage": bus_voltage,
+        "shunt_voltage": shunt_voltage,
+        "current": current,
+        "power": power,
+        "Status_innen": Status_innen,
+        "Status_außen": Status_außen,
+        "Luftdruck": Luftdruck
+    }
+    # Senden der Anfrage
+    response = requests.get(url, json=data, timeout=1, verify=False)
+
+    # Überprüfen der Antwort
+    if response.status_code == 200:
+        print("Daten erfolgreich gesendet:", response.json())
+    else:
+        print("Fehler beim Senden der Daten:", response.status_code, response.text)
+  
+  sendSensorDataToImSwitch()
+  
   try:
     sensorik_message = "\n".join([
         f"Lepmon#{sensor_id}",
@@ -832,24 +877,6 @@ def Daten_erfassen():
         f"",
         ])
     uart.write(sensorik_message.encode('utf-8') + b'\n') 
-    if Kamera == "ImSwitch":
-          def post_sensordata(humidity, inner_temp, outer_temp):
-            import requests
-            url = "https://localhost:8001/RecordingController/postSensorData"
-            data = {
-                'humidity': humidity,
-                'inner_temp': inner_temp,
-                'outer_temp': outer_temp
-            }
-            try:
-                response = requests.post(url, json=data, verify=False)
-                response.raise_for_status()  # Raise an exception for HTTP errors
-                print("Sensordaten erfolgreich übermittelt")
-            except requests.exceptions.RequestException as e:
-                print(f"Fehler beim Übermitteln der Sensordaten: {e}")
-                
-    post_sensordata(Temperatur, pct, Luftfeuchte)
-            
   except Exception as e:
     print(f"Lora Message nicht gesendet: {e}")
 
@@ -1256,10 +1283,10 @@ def lese_Koordinaten():
 ################################################# Hauptprogramm #################################################
 #################################################################################################################
 ### Verzeichnisse
-koordinaten_file_path = "/home/Ento/Lepmon_Einstellungen/Koordinaten.json"
-erw_einstellungen_pfad = "/home/Ento/Lepmon_Einstellungen/Fallenmodus.json"
-Kamera_Einstellungen = "/home/Ento/Lepmon_Einstellungen/Kamera_Einstellungen.xml"
-Halbkugel_pfad = "/home/Ento/Lepmon_Einstellungen/Hemisphere.json"
+koordinaten_file_path = os.path.join(current_folder,"Lepmon_Einstellungen", "Koordinaten.json")
+erw_einstellungen_pfad = os.path.join(current_folder,"Lepmon_Einstellungen", "Fallenmodus.json")
+Kamera_Einstellungen = os.path.join(current_folder,"Lepmon_Einstellungen", "Kamera_Einstellungen.xml")
+Halbkugel_pfad = os.path.join(current_folder,"Lepmon_Einstellungen", "Hemisphere.json")
 zielverzeichnis = None
 get_usb_path()
 
@@ -1310,7 +1337,7 @@ LepiLed_pwm = GPIO.PWM(LepiLed_pin, Blitz_PMW)
 ### erweiterte Einstellungen
 #Lepmoncode
 codeverzeichnis = ""
-with open('/home/Ento/Lepmon_Einstellungen/LepmonCode.json') as f:
+with open(os.path.join(current_folder, "Lepmon_Einstellungen/LepmonCode.json")) as f:
     data = json.load(f)
 
 projekt_name = data["projekt_name"]
@@ -1485,7 +1512,7 @@ for _ in range(2): #200
                         GUI_pin.off()
                     else:
                          time.sleep(0.1)         
-                spheren_pfad = "/home/Ento/Lepmon_Einstellungen/Hemisphere.json"
+                spheren_pfad = os.path.join(current_folder,"Lepmon_Einstellungen", "Hemisphere.json")
                 Hemisphere = {
                 "Pol": nordsüd,
                 "Block": ostwest
@@ -1497,7 +1524,7 @@ for _ in range(2): #200
                 with canvas(oled) as draw:
                   draw.rectangle(oled.bounding_box, outline = "white", fill = "black")
         
-                Koordinaten_pfad = "/home/Ento/Lepmon_Einstellungen/Koordinaten.json"
+                Koordinaten_pfad = os.path.join(current_folder,"Lepmon_Einstellungen", "Koordinaten.json")
                 koordinaten = {
                 "latitude": Breite,
                 "longitude": Länge
@@ -1792,7 +1819,7 @@ else:
 #copy Kamera Einstellungen
 try:
     xml_pfad = os.path.join(aktueller_nachtordner, 'Kamera_Einstellungen.xml')
-    shutil.copy("/home/Ento/Lepmon_Einstellungen/Kamera_Einstellungen.xml",xml_pfad)
+    shutil.copy(os.path.join(current_folder,"Lepmon_Einstellungen", "Kamera_Einstellungen.xml"),xml_pfad)
     checksum(xml_pfad, algorithm="md5")
     
 except:
@@ -1816,14 +1843,20 @@ if nacht_ende_zeit.time()<= jetzt_local.time() <nacht_beginn_zeit.time():
   except:
         print("Lora Message nicht gesendet")
 
-  countdown = datetime.strptime(Schlaf_Zeit, "%H:%M:%S")
+  try:
+    countdown = datetime.strptime(Schlaf_Zeit, "%H:%M:%S")
+  except Exception as e:
+    print(e)
+    countdown = datetime.strptime("00:00:00", "%H:%M:%S")
 
   #with canvas(oled) as draw:
   #        draw.rectangle(oled.bounding_box, outline = "white", fill = "black")
   #        draw.text((5, 5), "Start in:", font = oled_font, fill = "white") 
   #        draw.text((5, 25), f"{countdown_str}", font = oled_font, fill = "white") 
 
-  for _ in range(120):
+  nWait = 0 # TODO 120
+  
+  for _ in range(nWait):
     countdown_str = countdown.strftime("%H:%M:%S")  # Konvertiere datetime-Objekt in formatierten String
     with canvas(oled) as draw:
           draw.rectangle(oled.bounding_box, outline = "white", fill = "black")
@@ -1836,6 +1869,7 @@ if nacht_ende_zeit.time()<= jetzt_local.time() <nacht_beginn_zeit.time():
   with canvas(oled) as draw:
           draw.rectangle(oled.bounding_box, outline = "black", fill = "black")
   Schlaf_bis_beginn = Schlaf_bis_beginn-120
+  Schlaf_bis_beginn = 0 # TODO
   time.sleep(Schlaf_bis_beginn)
   Zeit_aktualisieren()
 
@@ -1867,6 +1901,7 @@ try:
     while True:
         Zeit_aktualisieren()
         Luxwert_lesen()
+
         jetzt_local = jetzt_local.replace(tzinfo=None)
         if (LUX <= Dämmerungsschwellenwert and not nacht_ende_zeit.strftime("%H:%M:%S") <= jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")) or\
            (LUX >  Dämmerungsschwellenwert and not Morgendämmerung.strftime("%H:%M:%S") <= jetzt_local.strftime("%H:%M:%S") < nacht_beginn_zeit.strftime("%H:%M:%S")) and Fang_started:
@@ -1885,6 +1920,8 @@ try:
             erstelle_und_aktualisiere_csv()
             Zeit_nächste_Aufnahme()
             
+          # TODO: post data from update_sensor_data to ImSwitch and display
+          
           elif Kontinuität: # Fangmodus für Tropen: mit Zeit in der die UV Lampe aus ist
               if not LepiLed_pwm_active: 
                 if uv_aus_zähler <= uv_aus_dauer:

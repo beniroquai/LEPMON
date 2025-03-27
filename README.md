@@ -128,6 +128,25 @@ conda activate lepmon
 pip install -r requirements.txt
 ```
 
+## Start 
+
+```bash
+sudo apt-get update && sudo apt-get install libcap-dev
+git clone https://github.com/openuc2/ImSwitchDockerInstall
+cd ImSwitchDockerInstall
+ ./install_vimba.sh 
+pip install -r requirements.txt 
+sudo apt-get install python3-opencv
+pip install https://github.com/BLavery/lib_oled96/archive/refs/heads/master.zip
+
+cd ~/ImSwitchConfig 
+checkout lepmon
+
+sudo reboot
+sudo raspi-config nonint do_i2c 0
+python Downloads/LEPMON/OLD/Lepmon_skript/Lepmon.py 
+```
+
 ## Notes
 
 - Make sure to provide appropriate permissions to access GPIO and I2C devices. Use `sudo` if necessary.
