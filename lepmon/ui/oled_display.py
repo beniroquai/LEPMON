@@ -4,8 +4,8 @@ from luma.core.render import canvas
 from PIL import ImageFont, Image
 
 class OLEDDisplay:
-    def __init__(self, i2c_port=1, address=0x3C, font_path='FreeSans.ttf', font_size=14, font_size_large=17,
-                 logo_path='/home/Ento/Lepmon_skript/logo_small.png'):
+    def __init__(self, i2c_port=1, address=0x3C, font_path='/home/pi/Downloads/LEPMON/lepmon/_fonts/FreeSans.ttf', font_size=14, font_size_large=17,
+                 logo_path='/home/pi/Downloads/LEPMON/lepmon/_fonts/logo_small.png'):
         try:
             self.serial = i2c(port=i2c_port, address=address)
             self.device = sh1106(self.serial)

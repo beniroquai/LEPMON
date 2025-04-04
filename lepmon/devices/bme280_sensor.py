@@ -13,7 +13,13 @@ class BME280Sensor:
         self.calibration_params = None
 
     def initialize(self):
-        self.calibration_params = bme280.load_calibration_params(self.bus, self.address)
+        try:
+            self.calibration_params = bme280.load_calibration_params(self.bus, self.address)
+            return True
+        except Exception as e:
+            self.calibration_params = None
+            print(f"Error initializing BME280 sensor: {e}")
+            return False
 
     def read_environmental_data(self):
         """

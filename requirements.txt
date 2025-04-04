@@ -23,5 +23,8 @@ picamera2
 pyserial
 adafruit-blinka
 imutils
+pyyaml
+uvicorn
+fastapi
 https://github.com/openUC2/imswitchclient/archive/refs/heads/main.zip
 #https://github.com/BLavery/lib_oled96/archive/refs/heads/master.zip

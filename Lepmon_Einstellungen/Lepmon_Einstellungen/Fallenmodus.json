@@ -1,0 +1,12 @@
+{
+  "Fang_mit_Pause": false,
+  "Anlockphase": "",
+  "Pause": "",
+  "Erweiterte_Einstellungen": {
+    "Daemmerungspuffer": "30",
+    "Blitzaenderungszeit": "0.25",
+    "Daemmerung": "90",
+    "Kameratyp": "Allied Vision Alvium",
+    "Intervall_zwischen_Photos": "1"
+  }
+}

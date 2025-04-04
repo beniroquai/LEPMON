@@ -7,6 +7,12 @@ from gpiozero import LED
 import ephem
 from datetime import datetime, timedelta    
 
+import uvicorn
+from fastapi import FastAPI
+
+# This is a simple FastAPI application
+app = FastAPI() # 
+
 try:
     import RPi.GPIO as GPIO
 except ImportError:
@@ -51,7 +57,7 @@ import lepmon.utils.file_ops as file_ops
 # You might keep constants, pin assignments, file paths in a config/constants.py
 # e.g. from lepmon.config.constants import *
 
-class SepMonController:
+class LEPMONController:
     
 
     def __init__(self):
@@ -401,6 +407,9 @@ class SepMonController:
                 # Here, just pretend we got lat/long from the user
                 latitude = "52.5200"
                 longitude = "13.4050"
+                
+                # TODO: This is unclear
+                # FIXME: This is not defined
 
                 # Clear screen
                 self.oled.show_lines([" "])
@@ -526,11 +535,17 @@ class SepMonController:
         # (You would typically store these in your config/constants or pass them differently)
         # and define any needed global-like variables.
         # The user might already have these in separate config files:
-        koordinaten_file_path = "./Lepmon_Einstellungen/Koordinaten.json"
-        erw_einstellungen_pfad = "./Lepmon_Einstellungen/Fallenmodus.json"
-        kamera_einstellungen_path = "./Lepmon_Einstellungen/Kamera_Einstellungen.xml"
-        halbkugel_pfad = "./Lepmon_Einstellungen/Hemisphere.json"
-        einstellungen_pfad = "./Lepmon_Einstellungen/LepmonCode.json"
+        import os
+        # get path of current folder path 
+        current_file_path = os.path.dirname(os.path.abspath(__file__))  # get directory of current file
+        # get directory of current file
+        
+        koordinaten_file_path = os.path.join(current_file_path, "Lepmon_Einstellungen/Koordinaten.json")
+        erw_einstellungen_pfad = os.path.join(current_file_path, "Lepmon_Einstellungen/Fallenmodus.json")
+        kamera_einstellungen_path = os.path.join(current_file_path, "Lepmon_Einstellungen/Kamera_Einstellungen.xml")
+        halbkugel_pfad = os.path.join(current_file_path, "Lepmon_Einstellungen/Hemisphere.json")
+        einstellungen_pfad = os.path.join(current_file_path, "Lepmon_Einstellungen/LepmonCode.json")
+        
         
         try: 
             usb_path = self.get_usb_path()
@@ -783,7 +798,7 @@ class SepMonController:
                 write_log_func(f"{now_local.strftime('%H:%M:%S')}; 20 seconds passed, no user input.")
             except:
                 pass
-
+        return 
         # Re-read coordinates if user changed them
         lat, lng, hemisphere_data = read_coordinates_func(koordinaten_file_path, halbkugel_pfad)
 
@@ -837,6 +852,11 @@ class SepMonController:
                 # or if capturing hasn't started, do something.
 
                 # If continuity_mode => check uv_on_counter, uv_off_counter, etc.
+                import imswitchclient.ImSwitchClient as imc
+                client = imc.ImSwitchClient(host="localhost", isHttps=True, port=8001)
+                image = client.recordingManager.snapNumpyToFastAPI()
+                cv2.imwrite(dateipfad, image)
+                log_schreiben(f"{lokale_Zeit}; Bild gespeichert: {dateiname}")
 
                 # capture_data_func(...)   # e.g. create CSV, store images, etc.
                 # create_or_update_csv_func(...)
@@ -853,16 +873,32 @@ class SepMonController:
             uv_led_pwm.stop()
             self.reboot()
 
+    @app.get("/reboot") 
     def reboot(self):
         """
         Reboots the Raspberry Pi.
         """
-        # os.system("sudo reboot")
+        os.system("sudo reboot")
+        
 
 
+    @app.get("/getGPSCoordinates")
+    def getGPSCoordinates(self):
+        '''return the GPS coordinates that are stored in the config file'''
+        coordinates_path = "/home/Ento/Lepmon_Einstellungen/Koordinaten.json"
+        with open(coordinates_path, "r") as json_file:
+            coordinates_data = json.load(json_file)
+            latitude = coordinates_data["latitude"]
+            longitude = coordinates_data["longitude"]
+        return latitude, longitude
+        
+        
 if __name__ == "__main__":
-    mSepMon = SepMonController()
-    mSepMon.run_main_program()
+    mLEPMON = LEPMONController()
+    mLEPMON.run_main_program()
     
-    #mSepMon.run_main_program()
+    # Run with uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    #mLEPMON.run_main_program()
     

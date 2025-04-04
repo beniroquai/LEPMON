@@ -1,0 +1,91 @@
+2025-04-04 06:43:38; INFO; Starting LepMon application...
+2025-04-04 06:46:37; INFO; Starting LepMon application...
+2025-04-04 06:46:37; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 06:46:37; INFO; max possible current: 40.96A
+2025-04-04 06:46:37; INFO; max expected current: 10.000A
+2025-04-04 06:46:37; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 06:46:37; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 06:46:37; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 06:46:37; INFO; max current before overflow: 9.9997A
+2025-04-04 06:46:37; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 06:46:37; INFO; calibration: 0x20c4 (8388)
+2025-04-04 06:49:18; INFO; Starting LepMon application...
+2025-04-04 06:49:18; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 06:49:18; INFO; max possible current: 40.96A
+2025-04-04 06:49:18; INFO; max expected current: 10.000A
+2025-04-04 06:49:18; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 06:49:18; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 06:49:18; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 06:49:18; INFO; max current before overflow: 9.9997A
+2025-04-04 06:49:18; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 06:49:18; INFO; calibration: 0x20c4 (8388)
+2025-04-04 06:52:22; INFO; Starting LepMon application...
+2025-04-04 06:52:23; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 06:52:23; INFO; max possible current: 40.96A
+2025-04-04 06:52:23; INFO; max expected current: 10.000A
+2025-04-04 06:52:23; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 06:52:23; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 06:52:23; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 06:52:23; INFO; max current before overflow: 9.9997A
+2025-04-04 06:52:23; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 06:52:23; INFO; calibration: 0x20c4 (8388)
+2025-04-04 06:53:41; INFO; Starting LepMon application...
+2025-04-04 06:53:42; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 06:53:42; INFO; max possible current: 40.96A
+2025-04-04 06:53:42; INFO; max expected current: 10.000A
+2025-04-04 06:53:42; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 06:53:42; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 06:53:42; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 06:53:42; INFO; max current before overflow: 9.9997A
+2025-04-04 06:53:42; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 06:53:42; INFO; calibration: 0x20c4 (8388)
+2025-04-04 06:59:30; INFO; Starting LepMon application...
+2025-04-04 06:59:30; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 06:59:30; INFO; max possible current: 40.96A
+2025-04-04 06:59:30; INFO; max expected current: 10.000A
+2025-04-04 06:59:30; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 06:59:30; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 06:59:30; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 06:59:30; INFO; max current before overflow: 9.9997A
+2025-04-04 06:59:30; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 06:59:30; INFO; calibration: 0x20c4 (8388)
+2025-04-04 07:11:07; INFO; Starting LepMon application...
+2025-04-04 07:11:07; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 07:11:07; INFO; max possible current: 40.96A
+2025-04-04 07:11:07; INFO; max expected current: 10.000A
+2025-04-04 07:11:07; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 07:11:07; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 07:11:07; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 07:11:07; INFO; max current before overflow: 9.9997A
+2025-04-04 07:11:07; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 07:11:07; INFO; calibration: 0x20c4 (8388)
+2025-04-04 07:11:50; INFO; Starting LepMon application...
+2025-04-04 07:11:50; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 07:11:50; INFO; max possible current: 40.96A
+2025-04-04 07:11:50; INFO; max expected current: 10.000A
+2025-04-04 07:11:50; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 07:11:50; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 07:11:50; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 07:11:50; INFO; max current before overflow: 9.9997A
+2025-04-04 07:11:50; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 07:11:50; INFO; calibration: 0x20c4 (8388)
+2025-04-04 07:15:35; INFO; Starting LepMon application...
+2025-04-04 07:15:35; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 07:15:35; INFO; max possible current: 40.96A
+2025-04-04 07:15:35; INFO; max expected current: 10.000A
+2025-04-04 07:15:35; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 07:15:35; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 07:15:35; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 07:15:35; INFO; max current before overflow: 9.9997A
+2025-04-04 07:15:35; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 07:15:35; INFO; calibration: 0x20c4 (8388)
+2025-04-04 07:16:06; INFO; Starting LepMon application...
+2025-04-04 07:16:06; INFO; calibrate called with: bus max volts: 40V, max shunt volts: 0.08V, max expected amps: 10.000A
+2025-04-04 07:16:06; INFO; max possible current: 40.96A
+2025-04-04 07:16:06; INFO; max expected current: 10.000A
+2025-04-04 07:16:06; INFO; expected current LSB base on max_expected_amps: 3.052e-04 A/bit
+2025-04-04 07:16:06; INFO; current LSB: 3.052e-04 A/bit
+2025-04-04 07:16:06; INFO; power LSB: 7.690e-03 W/bit
+2025-04-04 07:16:06; INFO; max current before overflow: 9.9997A
+2025-04-04 07:16:06; INFO; max shunt voltage before overflow: 19.9994mV
+2025-04-04 07:16:06; INFO; calibration: 0x20c4 (8388)
